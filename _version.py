@@ -7,7 +7,7 @@ PyInstaller version file, README, CHANGELOG - reads from here.
 """
 
 APP_NAME = "WS500 Util"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 AUTHOR = "Paul (nfbr.net)"
 COPYRIGHT = "Copyright (c) 2026 Paul (nfbr.net)"
 LICENSE = "GPL-3.0-or-later"

@@ -4,6 +4,32 @@ All notable changes to this project. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions use
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-05-16
+
+### Added
+- **Dropdown editor kind** (`as: "dropdown"` in the schema, rendered as
+  `QComboBox`). Each entry shows `<value> - <label>`; unknown file values
+  preserved as `(custom: N)`.
+- **CAN traffic direction badges** on `$CCN` fields: `[Tx]` / `[Rx]` /
+  `[Rx/Tx]` / `[Internal]` prepended to each description, color-coded per
+  theme. Sourced from a clause-by-clause read of the v2.6.1 guide.
+- Schema key `direction` for tagging any field with its CAN traffic role.
+
+### Changed
+- Seven enum fields converted from int spinbox to dropdown:
+  - `$CCN`: AllowRBM, Enable-OSE, Enable-NMEA2000, Enable_ALT_CAN
+    (17-protocol Table 3 list), BitRate
+  - `$SCO`: Lockout (level 2 highlighted red as irreversible),
+    Feature-OUT
+- First-launch file dialog now defaults to the folder the app lives in
+  (exe folder for frozen builds, source folder when running from source)
+  instead of `samples/`.
+
+### Fixed
+- Scroll wheel no longer changes spinbox / combobox values when the cursor
+  passes over a field while scrolling the page; events propagate to the
+  surrounding scroll area instead.
+
 ## [1.0.0] - 2026-05-16
 
 Initial public release.

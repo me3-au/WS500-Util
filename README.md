@@ -1,6 +1,6 @@
 # WS500 Util
 
-**Version 1.0.0** · Editor for Wakespeed WS500 / WS500-Pro configuration text files.
+**Version 1.0.1** · Editor for Wakespeed WS500 / WS500-Pro configuration text files.
 
 Schema and field semantics target **Wakespeed Communications and Configuration Guide v2.6.1**. If your firmware or guide version differs, treat this app as advisory and cross-check against Wakespeed's docs. See [CHANGELOG.md](CHANGELOG.md) for release history and [CLAUDE.md](CLAUDE.md) for implementation conventions.
 

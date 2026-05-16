@@ -3,8 +3,8 @@
 # Regenerate if _version.py changes: see CLAUDE.md "Versioning + release".
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),
-    prodvers=(1, 0, 0, 0),
+    filevers=(1, 0, 1, 0),
+    prodvers=(1, 0, 1, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -18,12 +18,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'Paul (nfbr.net)'),
          StringStruct('FileDescription', 'WS500 Util - Wakespeed config editor'),
-         StringStruct('FileVersion', '1.0.0'),
+         StringStruct('FileVersion', '1.0.1'),
          StringStruct('InternalName', 'WS500Util'),
          StringStruct('LegalCopyright', 'Copyright (c) 2026 Paul (nfbr.net). GPL-3.0-or-later.'),
          StringStruct('OriginalFilename', 'WS500Util.exe'),
          StringStruct('ProductName', 'WS500 Util'),
-         StringStruct('ProductVersion', '1.0.0')])
+         StringStruct('ProductVersion', '1.0.1')])
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
