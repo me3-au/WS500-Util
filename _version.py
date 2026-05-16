@@ -11,7 +11,7 @@ VERSION = "1.0.1"
 AUTHOR = "Paul (nfbr.net)"
 COPYRIGHT = "Copyright (c) 2026 Paul (nfbr.net)"
 LICENSE = "GPL-3.0-or-later"
-URL = ""  # set when a public repo URL is available
+URL = "https://github.com/me3-au/WS500-Util"
 
 # The Wakespeed Communications and Configuration Guide version this app's
 # schema and field semantics target. Bump alongside ws_schema.json if/when
