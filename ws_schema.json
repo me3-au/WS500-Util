@@ -13,8 +13,8 @@
       "scale":    "'V' = 12V-normalized, displayed at system voltage. 'A' = 500Ah-normalized, label-only",
       "sensitive":"'password' - masked editor, empty default, Apply confirmation",
       "bits":     "[{value, label}] - renders the field as a row of checkboxes (unknown bits preserved)",
-      "as":       "'text' (literal-preserving QLineEdit) | 'choices' (radio buttons + 'choices' array)",
-      "choices":  "[{value, label}] - required when as='choices'",
+      "as":       "'text' (literal-preserving QLineEdit) | 'choices' (radio buttons) | 'dropdown' (QComboBox). Last two require 'choices'",
+      "choices":  "[{value, label}] - required when as='choices' or 'dropdown'",
       "disabled_when": "see 'Dependency mapping' in CLAUDE.md (simple, all_of, any_of forms)",
       "max_field": "name of another field in the same command; this field must be strictly less",
       "preserve_when_disabled": "true => when disabled by dep, keep editor editable + value (no snap to default). For safety-critical fields like Alt Derate (half)",
@@ -32,13 +32,65 @@
         {"name": "Battery Instance Override", "type": "int",   "min": 0,    "max": 100,   "default": 0,     "desc": "Battery instance this device is associated with (1..100). 0 = use DIP switches."},
         {"name": "Device Instance",           "type": "int",   "min": 1,    "max": 13,    "default": 1,     "desc": "Charger instance number. Should be unique per regulator."},
         {"name": "Device Priority",           "type": "int",   "min": 1,    "max": 250,   "default": 70,    "desc": "Relative charging priority for OSEnergy/RV-C coordination."},
-        {"name": "AllowRBM",                  "type": "int",   "min": 0,    "max": 2,     "default": 1,     "desc": "0=no, 1=may act as Remote Battery Master, 2=virtual RBM."},
+        {"name": "AllowRBM",                  "type": "int",   "min": 0,    "max": 2,     "default": 1,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0, "label": "No - do not act as RBM"},
+            {"value": 1, "label": "Yes - may act as RBM"},
+            {"value": 2, "label": "Virtual RBM (re-transmits ALT_CAN data as RV-C)"}
+          ],
+          "desc": "Remote Battery Master role. Used with Enable_ALT_CAN, the virtual option re-broadcasts a 3rd-party CAN BMS as an RV-C device."},
         {"name": "ShuntAtBat",                "type": "int",   "min": 0,    "max": 1,     "default": 1,     "desc": "1=shunt is on battery, 0=shunt is on alternator."},
-        {"name": "Enable-OSE",                "type": "int",   "min": 0,    "max": 3,     "default": 1,     "desc": "OSEnergy (RV-C) Tx/Rx. 0=no, 1=yes, 3=yes + allow Charge Profile set via RV-C."},
-        {"name": "Enable-NMEA2000",           "type": "int",   "min": 0,    "max": 3,     "default": 1,     "desc": "NMEA-2000 status Tx. 0=no, 1=yes, 3=yes but suppress selected battery PGNs."},
-        {"name": "Enable_ALT_CAN",            "type": "int",   "min": 0,    "max": 255,   "default": 0,     "desc": "Bit/value selecting alternative CAN BMS protocol. See guide Table 3."},
+        {"name": "Enable-OSE",                "type": "int",   "min": 0,    "max": 3,     "default": 1,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0, "label": "Disabled"},
+            {"value": 1, "label": "Enabled"},
+            {"value": 3, "label": "Enabled + allow Charge Profile via RV-C"}
+          ],
+          "desc": "OSEnergy (RV-C) Tx/Rx. Value 2 is not a valid setting."},
+        {"name": "Enable-NMEA2000",           "type": "int",   "min": 0,    "max": 3,     "default": 1,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0, "label": "Disabled"},
+            {"value": 1, "label": "Enabled"},
+            {"value": 3, "label": "Enabled + suppress selected battery PGNs"}
+          ],
+          "desc": "NMEA-2000 status Tx. Suppression resolves conflicts with displays that select by Data Instance instead of Tx node. Value 2 is not valid."},
+        {"name": "Enable_ALT_CAN",            "type": "int",   "min": 0,    "max": 255,   "default": 0,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0,  "label": "Disabled (default)"},
+            {"value": 1,  "label": "NMEA2000 RAT"},
+            {"value": 2,  "label": "SMA / Victron BMS protocol"},
+            {"value": 3,  "label": "SMA / Victron BMS w/ Zero Output"},
+            {"value": 4,  "label": "MG Energy Systems"},
+            {"value": 5,  "label": "MG Energy Systems w/ Zero Output"},
+            {"value": 6,  "label": "Discover (AES / AEBus)"},
+            {"value": 7,  "label": "Discover (AES / AEBus) w/ Zero Output"},
+            {"value": 11, "label": "Lithium Werks"},
+            {"value": 12, "label": "Lithium Werks w/ Zero Output"},
+            {"value": 13, "label": "LUX (11-bit)"},
+            {"value": 14, "label": "LUX w/ Zero Output"},
+            {"value": 16, "label": "Victron LYNX BMS"},
+            {"value": 17, "label": "Victron LYNX BMS w/ Zero Output"},
+            {"value": 18, "label": "Victron SmartShunt (Cerbo combo)"},
+            {"value": 21, "label": "Victron CAN-bus (3rd-party batteries)"},
+            {"value": 22, "label": "Victron CAN-bus w/ Zero Output"}
+          ],
+          "desc": "Alternative CAN BMS protocol. See <i>Table 3</i> in the v2.6.1 guide. <b>DO NOT use the 'Victron CAN-bus' option with Victron BMS - use LYNX instead.</b> A real RV-C device, if present, takes precedence over any of these."},
         {"name": "Engine ID",                 "type": "int",   "min": 0,    "max": 250,   "default": 0,     "desc": "J1939 engine ID this regulator is paired with (PGN 61444)."},
-        {"name": "BitRate",                   "type": "int",   "min": 0,    "max": 5,     "default": 0,     "desc": "0=250k (default), 1=100k, 2=125k, 3=250k, 4=500k, 5=1M (Pro)."},
+        {"name": "BitRate",                   "type": "int",   "min": 0,    "max": 5,     "default": 0,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0, "label": "250 kbit/s (default)"},
+            {"value": 1, "label": "100 kbit/s"},
+            {"value": 2, "label": "125 kbit/s"},
+            {"value": 3, "label": "250 kbit/s"},
+            {"value": 4, "label": "500 kbit/s"},
+            {"value": 5, "label": "1 Mbit/s (WS500 Pro only)"}
+          ],
+          "desc": "CAN bus bit rate."},
         {"name": "DC_Disconnected_VBat",      "type": "float", "min": 0.0,  "max": 20.0,  "default": 0.0,   "decimals": 2, "scale": "V", "desc": "Target VBat when DC-Disconnect is received via CAN. 0=disable. 12V-normalized."},
         {"name": "Aggregate_BMS",             "type": "int",   "min": 0,    "max": 10,    "default": 0,     "desc": "Number of additional battery instances to aggregate. 0=disabled."},
         {"name": "Enable-DVCC",               "type": "int",   "min": 0,    "max": 1,     "default": 1,     "desc": "Accept Victron DVCC directions. Requires alternator current sensing."},
@@ -151,7 +203,15 @@
             {"value": 4,    "label": "48V"}
           ],
           "desc": "System voltage. Drives UI scaling for every 12V-normalized field. <b>Changing this affects how voltages are displayed throughout the app - reopen the file after changing to refresh all voltage editors.</b>"},
-        {"name": "Lockout",           "type": "int",   "min": 0,    "max": 3,    "default": 0,   "desc": "0=open, 1=lock changes, 2=lock (not $MSR clearable - DANGER), 3=lock BT only (Pro)."},
+        {"name": "Lockout",           "type": "int",   "min": 0,    "max": 3,    "default": 0,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0, "label": "Open (no lock)"},
+            {"value": 1, "label": "Lock changes (clearable via $MSR)"},
+            {"value": 2, "label": "Lock changes - NOT $MSR clearable (DANGER)"},
+            {"value": 3, "label": "Lock Bluetooth only (WS500 Pro)"}
+          ],
+          "desc": "Configuration lockout. <b style='color:#c00'>Level 2 is irreversible without a factory return.</b>"},
         {"name": "Feature-IN",        "type": "int",   "min": 0,    "max": 2,    "default": 0,
           "as": "choices",
           "choices": [
@@ -165,7 +225,18 @@
             ]
           },
           "desc": "Feature-In wire is triggered by +ve DC signal.<br><b>0</b> - Default - Active -> Equalize (CP 1..7) or Float (CP 8). Inactive -> Normal Charging.<br><b>1</b> - CP 8 only. (Invert) Active -> Normal Charging. Inactive -> Float.<br><b>2</b> - Half Power (invert) Active -> Full Power. Inactive -> Alt_Derate (Half).<br><br><b>Override</b> - when <i>$CNG RFM_RPM > 0</i>, Feature-IN is repurposed to control White Space and this setting is IGNORED."},
-        {"name": "Feature-OUT",       "type": "int",   "min": 0,    "max": 6,    "default": 0,   "desc": "0=default(post-float), 1=post-float, 2=BatHeater, 3=Fault, 4=AltHotFault, 5=DCDC warm, 6=DC_DISCONNECT."},
+        {"name": "Feature-OUT",       "type": "int",   "min": 0,    "max": 6,    "default": 0,
+          "as": "dropdown",
+          "choices": [
+            {"value": 0, "label": "Default (post-Float signal)"},
+            {"value": 1, "label": "Post-Float signal"},
+            {"value": 2, "label": "Battery Heater control"},
+            {"value": 3, "label": "Fault"},
+            {"value": 4, "label": "Alternator Hot fault"},
+            {"value": 5, "label": "DC-DC warming"},
+            {"value": 6, "label": "DC_DISCONNECT"}
+          ],
+          "desc": "Function assigned to the Feature-Out pin."},
         {"name": "Promiscuous Mode",  "type": "int",   "min": 0,    "max": 1,    "default": 0,   "desc": "1 = let some hard faults self-reset (see Appendix E 0x4000)."}
       ]
     },

@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QFileDialog, QMessageBox, QPlainTextEdit, QScrollArea, QFrame, QGridLayout,
     QSizePolicy, QStatusBar, QSpinBox, QDoubleSpinBox, QCheckBox, QRadioButton,
-    QButtonGroup, QLayout,
+    QButtonGroup, QLayout, QComboBox,
 )
 
 import ws_config as wc
@@ -350,14 +350,16 @@ class FieldRow(QWidget):
 
     @staticmethod
     def _resolve_kind(spec: dict) -> str:
-        """Pick an editor kind: 'password' | 'bitmask' | 'checkbox' | 'int' |
-        'float' | 'text' | 'choices' | 'string'."""
+        """Pick an editor kind: 'password' | 'bitmask' | 'checkbox' |
+        'choices' | 'dropdown' | 'int' | 'float' | 'text' | 'string'."""
         if spec.get("sensitive") == "password":
             return "password"
         if spec.get("as") == "text":
             return "text"
         if spec.get("as") == "choices" and spec.get("choices"):
             return "choices"
+        if spec.get("as") == "dropdown" and spec.get("choices"):
+            return "dropdown"
         if spec.get("bits"):
             return "bitmask"
         t = spec.get("type", "string")
@@ -395,6 +397,8 @@ class FieldRow(QWidget):
             return ed
         if k == "choices":
             return self._make_choices_editor(spec, file_value)
+        if k == "dropdown":
+            return self._make_dropdown_editor(spec, file_value)
         if k == "int":
             ed = QSpinBox()
             lo = int(spec.get("min", -2_147_483_648))
@@ -476,6 +480,33 @@ class FieldRow(QWidget):
                 val |= v
         self._bitmask_value_lbl.setText(f"= {val}")
 
+    def _make_dropdown_editor(self, spec: dict, file_value: str):
+        """QComboBox driven by `choices`. Each entry stores its integer file
+        value via setItemData. Values not in the choices list are added as a
+        '(custom: N)' entry and selected, so the literal source value is
+        preserved unless the user picks a known option."""
+        cb = QComboBox()
+        cb.setMaximumWidth(360)
+        try:
+            cur = int(file_value)
+        except (ValueError, TypeError):
+            try:
+                cur = int(spec.get("default", 0))
+            except (ValueError, TypeError):
+                cur = 0
+        matched = False
+        for choice in spec["choices"]:
+            cv = int(choice["value"])
+            cb.addItem(f"{cv} - {choice['label']}", cv)
+            if cv == cur and not matched:
+                cb.setCurrentIndex(cb.count() - 1)
+                matched = True
+        if not matched:
+            cb.addItem(f"(custom: {cur})", cur)
+            cb.setCurrentIndex(cb.count() - 1)
+        cb.currentIndexChanged.connect(lambda _i: self._on_edit())
+        return cb
+
     def _make_choices_editor(self, spec: dict, file_value: str):
         """Render a row of radio buttons for an enumerated numeric field.
         Each label shows both the human name and the file value, e.g.
@@ -526,6 +557,8 @@ class FieldRow(QWidget):
             return "0 or 1 (checkbox)"
         if self._kind == "bitmask":
             return f"bitmask 0..{self.spec.get('max', 255)}"
+        if self._kind == "dropdown":
+            return f"enum ({len(self.spec.get('choices', []))} options)"
         t = self.spec.get("type", "string")
         if t in ("string", "csv_strings"):
             ml = self.spec.get("max_len")
@@ -581,6 +614,15 @@ class FieldRow(QWidget):
             for choice in self.spec.get("choices", []):
                 if abs(float(choice["value"]) - fv) < 1e-6:
                     return f"{file_value} ({choice['label']})"
+            return f"{file_value} (custom)"
+        if self._kind == "dropdown":
+            try:
+                fv = int(file_value)
+            except (ValueError, TypeError):
+                return file_value
+            for c in self.spec.get("choices", []):
+                if int(c["value"]) == fv:
+                    return f"{file_value} ({c['label']})"
             return f"{file_value} (custom)"
         if self.spec.get("scale") == "V":
             try:
@@ -653,6 +695,17 @@ class FieldRow(QWidget):
                         matched = True
                     else:
                         rb.setChecked(False)
+            elif self._kind == "dropdown":
+                try:
+                    target = int(value)
+                except (ValueError, TypeError):
+                    target = int(self.spec.get("default", 0))
+                idx = self.editor.findData(target)
+                if idx >= 0:
+                    self.editor.setCurrentIndex(idx)
+                else:
+                    self.editor.addItem(f"(custom: {target})", target)
+                    self.editor.setCurrentIndex(self.editor.count() - 1)
             elif self._kind == "int":
                 try:
                     self.editor.setValue(int(value))
@@ -775,6 +828,9 @@ class FieldRow(QWidget):
             # No radio selected - preserve original (e.g. file value not in
             # the choices list).
             return self._file_value, True
+        if self._kind == "dropdown":
+            data = self.editor.currentData()
+            return (str(int(data)) if data is not None else self._file_value), True
         if self._kind == "int":
             return str(self.editor.value()), True
         if self._kind == "float":

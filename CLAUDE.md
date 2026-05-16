@@ -63,6 +63,7 @@ The UI picks an editor widget per field, dispatched on `_kind`:
 | `password` | `sensitive == "password"`                | `QLineEdit` (`Password` echo mode)      |
 | `text`     | `as == "text"`                           | `QLineEdit` with manual float range validation; preserves the literal source string (used by `BC_Index` for signed zero) |
 | `choices`  | `as == "choices"` (and spec has `choices`) | row of `QRadioButton` widgets, one per choice. Label shows `<name>  (<file value>)`. |
+| `dropdown` | `as == "dropdown"` (and spec has `choices`) | `QComboBox`. Item text `<value> - <label>`; file value stored as itemData. Unknown values preserved as `(custom: N)`. |
 | `bitmask`  | spec has `bits`                          | row of `QCheckBox` widgets              |
 | `checkbox` | `type=int` AND `min=0` AND `max=1`       | `QCheckBox` (no label - the row's name column carries it) |
 | `int`      | `type=int`                               | `QSpinBox`                              |
