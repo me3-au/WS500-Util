@@ -148,6 +148,11 @@ def _resolve_theme() -> dict[str, str]:
             "sep":     "#3a3a3a",
             "err_border": "#ff6b6b",
             "dynamic": "#7cc4ff",   # dynamically-sourced text (cross-cmd refs)
+            # CAN direction badges (Tx/Rx/Rx-Tx/Internal)
+            "tx":      "#7ee787",
+            "rx":      "#79c0ff",
+            "rxtx":    "#d2a8ff",
+            "internal":"#a8a8a8",
         }
     return {
         "muted":   "#555",
@@ -158,7 +163,23 @@ def _resolve_theme() -> dict[str, str]:
         "sep":     "#ddd",
         "err_border": "#b00",
         "dynamic": "#0066cc",
+        "tx":      "#22863a",
+        "rx":      "#0366d6",
+        "rxtx":    "#6f42c1",
+        "internal":"#777",
     }
+
+
+def _direction_badge_html(direction: str) -> str:
+    """Render a colored '[Tx]' / '[Rx]' / '[Rx/Tx]' / '[Internal]' badge for
+    inline use in a RichText description. Falls back to empty string for an
+    unrecognized direction so the schema can use any value safely."""
+    key = {"Tx": "tx", "Rx": "rx", "Rx/Tx": "rxtx",
+           "Internal": "internal"}.get(direction)
+    if not key:
+        return ""
+    return (f"<span style='color:{THEME[key]}; font-weight:bold; "
+            f"font-family:monospace;'>[{direction}]</span> ")
 
 
 # ---------------------------------------------------------------------------
@@ -333,7 +354,11 @@ class FieldRow(QWidget):
         # wrap earlier when the window is narrower.
         # `_desc_base` is the static text; `_desc_prefix` is dynamic and set
         # by CommandPage based on a controller field (see `prefix_from`).
-        self._desc_base = field_spec.get("desc", "")
+        # If the schema sets `direction` (Tx/Rx/Rx-Tx/Internal), a colored
+        # badge is prepended to _desc_base so the user can see at a glance
+        # how this field interacts with the CAN bus.
+        self._desc_base = (_direction_badge_html(field_spec.get("direction", ""))
+                           + field_spec.get("desc", ""))
         self._desc_prefix = ""
         self.desc_lbl = QLabel(self._desc_base)
         self.desc_lbl.setTextFormat(Qt.RichText)

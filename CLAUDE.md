@@ -46,6 +46,7 @@ Per-field keys understood by the parser/UI:
   - `Eng/Alt Drive Ratio`: 3 (sample shows `3.100`)
   - `VBat Comp per 1C`: 3 (range 0.0..0.1)
 - `scale` — `"V"` (12V-normalized in file, display = file × sv) or `"A"` (500Ah-normalized; not auto-scaled, see README "Known limits").
+- `direction` — `"Tx"` | `"Rx"` | `"Rx/Tx"` | `"Internal"`. Renders a colored badge before the description so the user can see how the field interacts with the CAN bus (transmit, receive, both, or regulator-internal logic). Currently tagged on every `$CCN` field. If you want to tag other commands, just add the key — no code change needed.
 - `sensitive` — `"password"`. Triggers masked editor, empty default, warnings, Apply confirmation.
 - `bits` — list of `{value, label}` objects. Renders the field as a row of checkboxes; the integer value is recomputed as the OR of checked bits + any unknown bits already in the file (those are preserved on save). Used by `$SCA` `Required Sensors` and `Ignore Sensors`.
 - `as` — editor override:

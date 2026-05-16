@@ -19,7 +19,8 @@
       "max_field": "name of another field in the same command; this field must be strictly less",
       "preserve_when_disabled": "true => when disabled by dep, keep editor editable + value (no snap to default). For safety-critical fields like Alt Derate (half)",
       "prefix_from": "{command, field, map: {value-string: text}} - inserts dynamic-color prefix in desc",
-      "rpm_bucket": "{field, index} - inserts a computed 'RPM N-M:' prefix derived from RFM_RPM"
+      "rpm_bucket": "{field, index} - inserts a computed 'RPM N-M:' prefix derived from RFM_RPM",
+      "direction":  "'Tx' | 'Rx' | 'Rx/Tx' | 'Internal' - CAN traffic direction. Rendered as a colored badge prepended to the description. Currently populated for $CCN fields."
     }
   },
   "commands": [
@@ -29,28 +30,31 @@
       "summary": "CAN bus identity, protocol enables, and remote sensing setup.",
       "profile": false,
       "fields": [
-        {"name": "Battery Instance Override", "type": "int",   "min": 0,    "max": 100,   "default": 0,     "desc": "Battery instance this device is associated with (1..100). 0 = use DIP switches."},
-        {"name": "Device Instance",           "type": "int",   "min": 1,    "max": 13,    "default": 1,     "desc": "Charger instance number. Should be unique per regulator."},
-        {"name": "Device Priority",           "type": "int",   "min": 1,    "max": 250,   "default": 70,    "desc": "Relative charging priority for OSEnergy/RV-C coordination."},
+        {"name": "Battery Instance Override", "type": "int",   "min": 0,    "max": 100,   "default": 0,     "direction": "Internal", "desc": "Battery instance this device is associated with (1..100). 0 = use DIP switches."},
+        {"name": "Device Instance",           "type": "int",   "min": 1,    "max": 13,    "default": 1,     "direction": "Tx",       "desc": "Charger instance number. Should be unique per regulator. Used by external displays to distinguish multiple WS500s on the bus."},
+        {"name": "Device Priority",           "type": "int",   "min": 1,    "max": 250,   "default": 70,    "direction": "Rx/Tx",    "desc": "Relative charging priority for OSEnergy/RV-C coordination. Announced on Tx; compared against other devices' priorities (Rx) for RBM arbitration."},
         {"name": "AllowRBM",                  "type": "int",   "min": 0,    "max": 2,     "default": 1,
           "as": "dropdown",
+          "direction": "Tx",
           "choices": [
             {"value": 0, "label": "No - do not act as RBM"},
             {"value": 1, "label": "Yes - may act as RBM"},
             {"value": 2, "label": "Virtual RBM (re-transmits ALT_CAN data as RV-C)"}
           ],
-          "desc": "Remote Battery Master role. Used with Enable_ALT_CAN, the virtual option re-broadcasts a 3rd-party CAN BMS as an RV-C device."},
-        {"name": "ShuntAtBat",                "type": "int",   "min": 0,    "max": 1,     "default": 1,     "desc": "1=shunt is on battery, 0=shunt is on alternator."},
+          "desc": "Gates whether this regulator transmits as the Remote Battery Master. If a higher-priority RBM appears, Tx stops per RV-C spec. Virtual mode re-broadcasts a 3rd-party CAN BMS (Rx via Enable_ALT_CAN) as an RV-C device."},
+        {"name": "ShuntAtBat",                "type": "int",   "min": 0,    "max": 1,     "default": 1,     "direction": "Internal", "desc": "1=shunt is on battery, 0=shunt is on alternator. Tells the regulator how to interpret its own analog shunt reading; does not change CAN traffic."},
         {"name": "Enable-OSE",                "type": "int",   "min": 0,    "max": 3,     "default": 1,
           "as": "dropdown",
+          "direction": "Rx/Tx",
           "choices": [
             {"value": 0, "label": "Disabled"},
             {"value": 1, "label": "Enabled"},
             {"value": 3, "label": "Enabled + allow Charge Profile via RV-C"}
           ],
-          "desc": "OSEnergy (RV-C) Tx/Rx. Value 2 is not a valid setting."},
+          "desc": "OSEnergy (RV-C) status / coordination messages - both Tx and Rx when enabled. Value 2 is not valid."},
         {"name": "Enable-NMEA2000",           "type": "int",   "min": 0,    "max": 3,     "default": 1,
           "as": "dropdown",
+          "direction": "Tx",
           "choices": [
             {"value": 0, "label": "Disabled"},
             {"value": 1, "label": "Enabled"},
@@ -59,6 +63,7 @@
           "desc": "NMEA-2000 status Tx. Suppression resolves conflicts with displays that select by Data Instance instead of Tx node. Value 2 is not valid."},
         {"name": "Enable_ALT_CAN",            "type": "int",   "min": 0,    "max": 255,   "default": 0,
           "as": "dropdown",
+          "direction": "Rx",
           "choices": [
             {"value": 0,  "label": "Disabled (default)"},
             {"value": 1,  "label": "NMEA2000 RAT"},
@@ -79,9 +84,10 @@
             {"value": 22, "label": "Victron CAN-bus w/ Zero Output"}
           ],
           "desc": "Alternative CAN BMS protocol. See <i>Table 3</i> in the v2.6.1 guide. <b>DO NOT use the 'Victron CAN-bus' option with Victron BMS - use LYNX instead.</b> A real RV-C device, if present, takes precedence over any of these."},
-        {"name": "Engine ID",                 "type": "int",   "min": 0,    "max": 250,   "default": 0,     "desc": "J1939 engine ID this regulator is paired with (PGN 61444)."},
+        {"name": "Engine ID",                 "type": "int",   "min": 0,    "max": 250,   "default": 0,     "direction": "Rx/Tx", "desc": "J1939 engine ID. Rx: monitors PGN 61444 for matching engine RPM and uses it instead of stator-measured RPMs. Tx: outgoing NMEA2000 PGN 127488 (Engine parameters rapid) tags this Engine ID."},
         {"name": "BitRate",                   "type": "int",   "min": 0,    "max": 5,     "default": 0,
           "as": "dropdown",
+          "direction": "Rx/Tx",
           "choices": [
             {"value": 0, "label": "250 kbit/s (default)"},
             {"value": 1, "label": "100 kbit/s"},
@@ -91,10 +97,10 @@
             {"value": 5, "label": "1 Mbit/s (WS500 Pro only)"}
           ],
           "desc": "CAN bus bit rate."},
-        {"name": "DC_Disconnected_VBat",      "type": "float", "min": 0.0,  "max": 20.0,  "default": 0.0,   "decimals": 2, "scale": "V", "desc": "Target VBat when DC-Disconnect is received via CAN. 0=disable. 12V-normalized."},
-        {"name": "Aggregate_BMS",             "type": "int",   "min": 0,    "max": 10,    "default": 0,     "desc": "Number of additional battery instances to aggregate. 0=disabled."},
-        {"name": "Enable-DVCC",               "type": "int",   "min": 0,    "max": 1,     "default": 1,     "desc": "Accept Victron DVCC directions. Requires alternator current sensing."},
-        {"name": "CAN Alternator Data Instance","type": "int", "min": 0,    "max": 255,   "default": 0,     "desc": "RV-C-style instance for CAN Alt current sensor (N2K PGN 127508). 0=disabled."}
+        {"name": "DC_Disconnected_VBat",      "type": "float", "min": 0.0,  "max": 20.0,  "default": 0.0,   "decimals": 2, "scale": "V", "direction": "Rx", "desc": "Target VBat when a DC-Disconnect command is received via CAN. 0 = disable charging on DC-Disconnect. 12V-normalized."},
+        {"name": "Aggregate_BMS",             "type": "int",   "min": 0,    "max": 10,    "default": 0,     "direction": "Rx", "desc": "Widens Rx to monitor up to N additional Battery Instances (beyond the configured one). 0 = single-instance only."},
+        {"name": "Enable-DVCC",               "type": "int",   "min": 0,    "max": 1,     "default": 1,     "direction": "Rx", "desc": "Listen for Victron DVCC alternator-amperage limits / directions from a Cerbo (or compatible). Requires alternator current sensing."},
+        {"name": "CAN Alternator Data Instance","type": "int", "min": 0,    "max": 255,   "default": 0,     "direction": "Rx", "desc": "Receive alternator current from a CAN-based current sensor via NMEA2000 PGN 127508 (DC Status). Incoming PGNs matching this instance supply the alternator amperage. 0 = disabled."}
       ]
     },
     {
