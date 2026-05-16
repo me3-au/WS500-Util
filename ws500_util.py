@@ -1886,12 +1886,14 @@ def main():
     if len(sys.argv) > 1:
         win.load(sys.argv[1])
     else:
-        # No file on the command line: prompt for one immediately. Default to
-        # the bundled samples folder if it exists so the user can just click
-        # the file rather than navigating.
-        start_dir = Path(__file__).parent / "samples"
-        if not start_dir.is_dir():
-            start_dir = Path.cwd()
+        # No file on the command line: prompt for one. Default to the folder
+        # the app itself lives in (the .exe folder for frozen builds, the
+        # source folder when running from source) so the user lands where
+        # they keep their configs alongside the app.
+        if getattr(sys, "frozen", False):
+            start_dir = Path(sys.executable).parent
+        else:
+            start_dir = Path(__file__).parent
         path, _ = QFileDialog.getOpenFileName(win, "Open Config File",
                                               str(start_dir),
                                               "WS config (*.txt *.cfg);;All files (*)")
