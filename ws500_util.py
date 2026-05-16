@@ -35,6 +35,32 @@ import _version as ver
 
 
 # ---------------------------------------------------------------------------
+# Wheel-event-suppressing editor widgets. The default QSpinBox / QDoubleSpinBox
+# / QComboBox all consume mouse-wheel events to change their value, which is
+# infuriating when the user is trying to scroll the page and the cursor
+# happens to pass over a field. These subclasses .ignore() the wheel event
+# so it propagates up to the QScrollArea instead.
+# ---------------------------------------------------------------------------
+
+
+class _NoWheelMixin:
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class NoWheelSpinBox(_NoWheelMixin, QSpinBox):
+    pass
+
+
+class NoWheelDoubleSpinBox(_NoWheelMixin, QDoubleSpinBox):
+    pass
+
+
+class NoWheelComboBox(_NoWheelMixin, QComboBox):
+    pass
+
+
+# ---------------------------------------------------------------------------
 # FlowLayout: a horizontal layout that wraps onto new lines when there isn't
 # enough width. Standard Qt example; used for bitmask checkbox rows and
 # choices radio rows so they reflow as the window narrows.
@@ -400,7 +426,7 @@ class FieldRow(QWidget):
         if k == "dropdown":
             return self._make_dropdown_editor(spec, file_value)
         if k == "int":
-            ed = QSpinBox()
+            ed = NoWheelSpinBox()
             lo = int(spec.get("min", -2_147_483_648))
             hi = int(spec.get("max",  2_147_483_647))
             try:
@@ -413,7 +439,7 @@ class FieldRow(QWidget):
             ed.valueChanged.connect(lambda _v: self._on_edit())
             return ed
         if k == "float":
-            ed = QDoubleSpinBox()
+            ed = NoWheelDoubleSpinBox()
             decimals = _spec_decimals(spec)
             ed.setDecimals(decimals)
             ed.setSingleStep(10 ** -decimals)
@@ -485,7 +511,7 @@ class FieldRow(QWidget):
         value via setItemData. Values not in the choices list are added as a
         '(custom: N)' entry and selected, so the literal source value is
         preserved unless the user picks a known option."""
-        cb = QComboBox()
+        cb = NoWheelComboBox()
         cb.setMaximumWidth(360)
         try:
             cur = int(file_value)
