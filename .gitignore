@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+*.manifest
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local
+*.local
+ws_guide.txt
+.claude/
+
+# Wakespeed's copyrighted documentation - do not redistribute.
+Wakespeed-*.pdf
+*.pdf
+
+# Working / personal config files at the repo root (the sanitized sample
+# lives in samples/ - commit that instead).
+/ALT_*.txt
+/*_v[0-9]*.txt

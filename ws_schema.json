@@ -1,0 +1,288 @@
+{
+  "_meta": {
+    "guide": "Wakespeed Communications and Configuration Guide v2.6.1",
+    "doc": "See CLAUDE.md for the full schema key reference. Short list below.",
+    "command_keys": ["code", "title", "summary", "profile", "fields"],
+    "field_keys": {
+      "name":     "required - displayed label",
+      "type":     "int | float | string | csv_strings",
+      "min/max":  "file-units bounds (range column)",
+      "default":  "schema default; rendered in the Default column",
+      "desc":     "rich text (HTML allowed: <b>, <i>, <br>, <span style='color:#c00'>)",
+      "decimals": "float editor precision + save formatting (default 2)",
+      "scale":    "'V' = 12V-normalized, displayed at system voltage. 'A' = 500Ah-normalized, label-only",
+      "sensitive":"'password' - masked editor, empty default, Apply confirmation",
+      "bits":     "[{value, label}] - renders the field as a row of checkboxes (unknown bits preserved)",
+      "as":       "'text' (literal-preserving QLineEdit) | 'choices' (radio buttons + 'choices' array)",
+      "choices":  "[{value, label}] - required when as='choices'",
+      "disabled_when": "see 'Dependency mapping' in CLAUDE.md (simple, all_of, any_of forms)",
+      "max_field": "name of another field in the same command; this field must be strictly less",
+      "preserve_when_disabled": "true => when disabled by dep, keep editor editable + value (no snap to default). For safety-critical fields like Alt Derate (half)",
+      "prefix_from": "{command, field, map: {value-string: text}} - inserts dynamic-color prefix in desc",
+      "rpm_bucket": "{field, index} - inserts a computed 'RPM N-M:' prefix derived from RFM_RPM"
+    }
+  },
+  "commands": [
+    {
+      "code": "CCN",
+      "title": "CAN Configuration",
+      "summary": "CAN bus identity, protocol enables, and remote sensing setup.",
+      "profile": false,
+      "fields": [
+        {"name": "Battery Instance Override", "type": "int",   "min": 0,    "max": 100,   "default": 0,     "desc": "Battery instance this device is associated with (1..100). 0 = use DIP switches."},
+        {"name": "Device Instance",           "type": "int",   "min": 1,    "max": 13,    "default": 1,     "desc": "Charger instance number. Should be unique per regulator."},
+        {"name": "Device Priority",           "type": "int",   "min": 1,    "max": 250,   "default": 70,    "desc": "Relative charging priority for OSEnergy/RV-C coordination."},
+        {"name": "AllowRBM",                  "type": "int",   "min": 0,    "max": 2,     "default": 1,     "desc": "0=no, 1=may act as Remote Battery Master, 2=virtual RBM."},
+        {"name": "ShuntAtBat",                "type": "int",   "min": 0,    "max": 1,     "default": 1,     "desc": "1=shunt is on battery, 0=shunt is on alternator."},
+        {"name": "Enable-OSE",                "type": "int",   "min": 0,    "max": 3,     "default": 1,     "desc": "OSEnergy (RV-C) Tx/Rx. 0=no, 1=yes, 3=yes + allow Charge Profile set via RV-C."},
+        {"name": "Enable-NMEA2000",           "type": "int",   "min": 0,    "max": 3,     "default": 1,     "desc": "NMEA-2000 status Tx. 0=no, 1=yes, 3=yes but suppress selected battery PGNs."},
+        {"name": "Enable_ALT_CAN",            "type": "int",   "min": 0,    "max": 255,   "default": 0,     "desc": "Bit/value selecting alternative CAN BMS protocol. See guide Table 3."},
+        {"name": "Engine ID",                 "type": "int",   "min": 0,    "max": 250,   "default": 0,     "desc": "J1939 engine ID this regulator is paired with (PGN 61444)."},
+        {"name": "BitRate",                   "type": "int",   "min": 0,    "max": 5,     "default": 0,     "desc": "0=250k (default), 1=100k, 2=125k, 3=250k, 4=500k, 5=1M (Pro)."},
+        {"name": "DC_Disconnected_VBat",      "type": "float", "min": 0.0,  "max": 20.0,  "default": 0.0,   "decimals": 2, "scale": "V", "desc": "Target VBat when DC-Disconnect is received via CAN. 0=disable. 12V-normalized."},
+        {"name": "Aggregate_BMS",             "type": "int",   "min": 0,    "max": 10,    "default": 0,     "desc": "Number of additional battery instances to aggregate. 0=disabled."},
+        {"name": "Enable-DVCC",               "type": "int",   "min": 0,    "max": 1,     "default": 1,     "desc": "Accept Victron DVCC directions. Requires alternator current sensing."},
+        {"name": "CAN Alternator Data Instance","type": "int", "min": 0,    "max": 255,   "default": 0,     "desc": "RV-C-style instance for CAN Alt current sensor (N2K PGN 127508). 0=disabled."}
+      ]
+    },
+    {
+      "code": "SCA",
+      "title": "Alternator / System",
+      "summary": "Alternator limits, derates, shunt, idle, warmup, required sensors.",
+      "profile": false,
+      "fields": [
+        {"name": "BTS2ATS",            "type": "int",   "min": 0,    "max": 1,     "default": 0,    "desc": "1=use Battery Temp Sensor as 2nd Alternator Temp Sensor."},
+        {"name": "Alt Target Temp",    "type": "int",   "min": 15,   "max": 150,   "default": 95,   "desc": "Alternator target operating temperature (deg C). +10% triggers fault."},
+        {"name": "Alt Derate (norm)",  "type": "float", "min": 0.0,  "max": 1.0,   "default": 1.0,  "decimals": 2, "desc": "Max field/output scaling in normal mode (0..1). <b style='color:#c00'>CRITICAL FOR MANY 48V ALTS</b>"},
+        {"name": "Alt Derate (small)", "type": "float", "min": 0.0,  "max": 1.0,   "default": 0.75, "decimals": 2, "max_field": "Alt Derate (norm)", "desc": "Max field/output scaling in Small-Alt mode. Selected via DIP switch 8, or by shorting the ATS sensor wires. Must be less than Alt Derate (norm). <i>Note: Legacy.</i>"},
+        {"name": "Alt Derate (half)",  "type": "float", "min": 0.0,  "max": 1.0,   "default": 0.50, "decimals": 2, "max_field": "Alt Derate (norm)", "preserve_when_disabled": true,
+          "disabled_when": {
+            "all_of": [
+              {"command": "SCT", "field": "Trigger Half-Power RPM", "values": [0],    "active_label": "Trigger Half-Power RPM"},
+              {"command": "SCO", "field": "Feature-IN",             "values": [0, 1], "active_label": "Feature-In (Half-Power select)"}
+            ]
+          },
+          "desc": "Max field/output scaling in Half-Power mode. Selected via <i>Trigger Half-Power RPM</i> (in $SCT) or via <i>Feature-In</i> (in $SCO, when set to Half-Power select). Must be less than Alt Derate (norm). <b style='color:#c00'>CRITICAL FOR MANY 48V ALTS</b>"},
+        {"name": "PBF",                "type": "int",   "min": -1,   "max": 10,    "default": 0,
+          "disabled_when": {
+            "any_of": [
+              {"command": "CNG", "field": "RFM_RPM", "not_values": [0], "active_label": "RFM_RPM"}
+            ]
+          },
+          "desc": "Pull-back factor at low RPM. -1 = special 70%% cap if RPM lost. 0 = disabled. <b>Either/or with White Space (RFM in $CNG)</b> - Wakespeed recommends White Space. Auto-disabled when RFM_RPM != 0."},
+        {"name": "Alt Amp Cap",        "type": "int",   "min": -1,   "max": 500,   "default": 0,    "desc": "Max alternator amps. -1 = auto-sample at Bulk entry. 0 = disabled."},
+        {"name": "System Watts Cap",   "type": "int",   "min": -1,   "max": 40000, "default": 0,    "desc": "Max system watts. -1 = auto-sample. 0 = disabled (15kW hard cap)."},
+        {"name": "Amp Shunt Ratio",    "type": "int",   "min": 500,  "max": 60000, "default": 3333,
+          "prefix_from": {"command": "CCN", "field": "ShuntAtBat",
+            "map": {"0": "<b>Alt Shunt</b> - Configured by $CCN ShuntAtBat. ",
+                    "1": "<b>Batt Shunt</b> - Configured by $CCN ShuntAtBat. "}},
+          "desc": "Shunt ratio in A/mV * 1000-ish (e.g. 250A/75mV -> 3333)."},
+        {"name": "Shunt Reversed",     "type": "int",   "min": 0,    "max": 1,     "default": 0,
+          "prefix_from": {"command": "CCN", "field": "ShuntAtBat",
+            "map": {"0": "<b>Alt Shunt</b> - Configured by $CCN ShuntAtBat. ",
+                    "1": "<b>Batt Shunt</b> - Configured by $CCN ShuntAtBat. "}},
+          "desc": "1 = invert measured amp polarity."},
+        {"name": "Idle RPMs",          "type": "int",   "min": 0,    "max": 2500,  "default": 0,    "desc": "Idle RPM for pull-back calc. 0 = auto-detect."},
+        {"name": "Warmup Delay",       "type": "int",   "min": -600, "max": 600,   "default": 30,   "desc": "Seconds in PRE-RAMP before applying load. Negative disables Fast Ramp. Valid range excludes -14..14."},
+        {"name": "Required Sensors",   "type": "int",   "min": 0,    "max": 255,   "default": 0,
+          "bits": [
+            {"value": 1,   "label": "Alt Temp"},
+            {"value": 2,   "label": "Bat Temp"},
+            {"value": 4,   "label": "Bat Current"},
+            {"value": 8,   "label": "CAN RBM"},
+            {"value": 128, "label": "Force FAULT on missing"}
+          ],
+          "desc": "Sensors that MUST be present. Missing -> warning (or FAULT if 'Force FAULT' is checked). Unknown bits in the file are preserved."},
+        {"name": "Ignore Sensors",     "type": "int",   "min": 0,    "max": 255,   "default": 0,
+          "bits": [
+            {"value": 1,  "label": "Alt Temp"},
+            {"value": 2,  "label": "Bat Temp"},
+            {"value": 4,  "label": "Shunt"},
+            {"value": 8,  "label": "Stator"},
+            {"value": 16, "label": "Feature-In"}
+          ],
+          "desc": "Sensors to ignore even if physically present. Unknown bits in the file are preserved."},
+        {"name": "BMS Amp Cap",        "type": "int",   "min": 0,    "max": 2500,  "default": 0,    "desc": "Max charge amps BMS can accept. 0=disabled. Clipped to 10A increments."}
+      ]
+    },
+    {
+      "code": "SCT",
+      "title": "Tachometer",
+      "summary": "Alternator poles, drive ratio, tach-mode field floor.",
+      "profile": false,
+      "fields": [
+        {"name": "Alt Poles",                "type": "int",   "min": 2,   "max": 25,    "default": 12,   "desc": "Number of poles in the alternator."},
+        {"name": "Eng/Alt Drive Ratio",      "type": "float", "min": 0.5, "max": 50.0,  "default": 2.83, "decimals": 3, "desc": "Engine pulley dia / Alt pulley dia."},
+        {"name": "Tach Min Field",           "type": "int",   "min": 0,   "max": 30,    "default": 0,
+          "disabled_when": {"field": "ForceTM", "values": [0]},
+          "desc": "Min PWM %% when Tach-Mode on. Capped at 30%%. 0 = none. Used to drive an analog tachometer from the stator output. <b style='color:#c00'>CAUTION: can overcharge and damage Lithium batteries</b> - this forces field drive even when the regulator would otherwise stop charging."},
+        {"name": "ForceTM",                  "type": "int",   "min": 0,   "max": 1,     "default": 0,    "desc": "Force Tach-Mode on. When checked, the regulator drives the field with at least <i>Tach Min Field</i> %% so an analog tach can read RPM from the stator. Only enable if using the alternator output to drive a tachometer."},
+        {"name": "Trigger Half-Power RPM",   "type": "int",   "min": 0,   "max": 10000, "default": 0,    "desc": "If engine RPM falls below this, force Half-Power mode. 0=disabled."}
+      ]
+    },
+    {
+      "code": "SCN",
+      "title": "Name / Password",
+      "summary": "Wireless enable, regulator name, password.",
+      "profile": false,
+      "fields": [
+        {"name": "Enable Wireless", "type": "int",    "min": 0, "max": 1,  "default": 1,        "desc": "1 = enable Bluetooth (WS500 Pro)."},
+        {"name": "Reg Name",        "type": "string", "max_len": 18,       "default": "WS500",  "desc": "CAN ID name. No spaces, comma, or @."},
+        {"name": "Reg Password",    "type": "string", "max_len": 18,       "default": "",       "sensitive": "password", "desc": "Empty = leave existing device password unchanged. Leading '.' = stored but hidden in NPC status. Factory default is '1234'."}
+      ]
+    },
+    {
+      "code": "SCO",
+      "title": "Overrides",
+      "summary": "DIP overrides, system voltage, lockout, Feature-In/Out behavior.",
+      "profile": false,
+      "fields": [
+        {"name": "CP_Index",          "type": "int",   "min": 0,    "max": 8,    "default": 0,   "desc": "Charge Profile select (1..8). 0 = use DIP. <b>8 = Custom, most use Custom, other Legacy.</b>"},
+        {"name": "BC_Index",          "type": "float", "min": -10.0,"max": 10.0, "default": 0.0, "decimals": 2, "as": "text", "desc": "Battery Capacity multiplier. 0 = use DIP switches. Negative = ignore CAN-supplied value too. Literal text editor to preserve signed zero (-0.00 vs 0.00)."},
+        {"name": "SV_Override",       "type": "float", "min": 0.0,  "max": 4.5,  "default": 0.0, "decimals": 2,
+          "as": "choices",
+          "choices": [
+            {"value": 0,    "label": "Auto"},
+            {"value": 1,    "label": "12V"},
+            {"value": 2,    "label": "24V"},
+            {"value": 2.67, "label": "32V"},
+            {"value": 3,    "label": "36V"},
+            {"value": 3.5,  "label": "42V"},
+            {"value": 4,    "label": "48V"}
+          ],
+          "desc": "System voltage. Drives UI scaling for every 12V-normalized field. <b>Changing this affects how voltages are displayed throughout the app - reopen the file after changing to refresh all voltage editors.</b>"},
+        {"name": "Lockout",           "type": "int",   "min": 0,    "max": 3,    "default": 0,   "desc": "0=open, 1=lock changes, 2=lock (not $MSR clearable - DANGER), 3=lock BT only (Pro)."},
+        {"name": "Feature-IN",        "type": "int",   "min": 0,    "max": 2,    "default": 0,
+          "as": "choices",
+          "choices": [
+            {"value": 0, "label": "Default: Equalize / Float-on-CP8"},
+            {"value": 1, "label": "CPE#8 Force-to-Float (inverted)"},
+            {"value": 2, "label": "Select Half-Power (inverted)"}
+          ],
+          "disabled_when": {
+            "any_of": [
+              {"command": "CNG", "field": "RFM_RPM", "gt": 0, "active_label": "RFM_RPM > 0 repurposes Feature-IN"}
+            ]
+          },
+          "desc": "Feature-In wire is triggered by +ve DC signal.<br><b>0</b> - Default - Active -> Equalize (CP 1..7) or Float (CP 8). Inactive -> Normal Charging.<br><b>1</b> - CP 8 only. (Invert) Active -> Normal Charging. Inactive -> Float.<br><b>2</b> - Half Power (invert) Active -> Full Power. Inactive -> Alt_Derate (Half).<br><br><b>Override</b> - when <i>$CNG RFM_RPM > 0</i>, Feature-IN is repurposed to control White Space and this setting is IGNORED."},
+        {"name": "Feature-OUT",       "type": "int",   "min": 0,    "max": 6,    "default": 0,   "desc": "0=default(post-float), 1=post-float, 2=BatHeater, 3=Fault, 4=AltHotFault, 5=DCDC warm, 6=DC_DISCONNECT."},
+        {"name": "Promiscuous Mode",  "type": "int",   "min": 0,    "max": 1,    "default": 0,   "desc": "1 = let some hard faults self-reset (see Appendix E 0x4000)."}
+      ]
+    },
+    {
+      "code": "CNG",
+      "title": "Engine Configuration",
+      "summary": "J1939 load cap, RPM-based White-Space (RFM), EGT setpoint.",
+      "profile": false,
+      "fields": [
+        {"name": "J1939MaxLoad", "type": "float", "min": 0.0,    "max": 1.2,   "default": 0.0,  "decimals": 2, "desc": "Max allowed J1939 engine load fraction (PGN 61443). 0 = disabled."},
+        {"name": "RFM_RPM",      "type": "int",   "min": -10000, "max": 10000, "default": 0,
+          "disabled_when": {
+            "any_of": [
+              {"command": "SCA", "field": "PBF", "not_values": [0], "active_label": "PBF"}
+            ]
+          },
+          "desc": "Upper engine RPM for the 8x White-Space derate buckets. <b>The sign of this value also controls how the Feature-In wire behaves:</b><br><br><b>0</b> = White Space disabled (RFM1..8 inactive). Feature-In keeps its <i>$SCO Feature-IN</i> function.<br><b>Positive (eg 3000)</b> - White Space function Enabled when Feature In has +ve signal applied. Overrides <i>$SCO Feature-IN</i>.<br><b>Negative (eg -3000)</b> - White Space always on. Feature-IN managed by <i>$SCO</i>.<br><br><b>Either/or with PBF ($SCA)</b>: if PBF is non-zero, this field is auto-disabled."},
+        {"name": "RFM1",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 1}, "desc": "Derate multiplier (0..1) for this RPM bucket."},
+        {"name": "RFM2",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 2}, "desc": "Derate multiplier."},
+        {"name": "RFM3",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 3}, "desc": "Derate multiplier."},
+        {"name": "RFM4",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 4}, "desc": "Derate multiplier."},
+        {"name": "RFM5",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 5}, "desc": "Derate multiplier."},
+        {"name": "RFM6",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 6}, "desc": "Derate multiplier."},
+        {"name": "RFM7",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 7}, "desc": "Derate multiplier."},
+        {"name": "RFM8",         "type": "float", "min": 0.0,    "max": 1.0,   "default": 0.0,  "decimals": 2, "disabled_when": {"field": "RFM_RPM", "values": [0]}, "rpm_bucket": {"field": "RFM_RPM", "index": 8}, "desc": "Derate multiplier (top bucket, no upper RPM limit)."},
+        {"name": "EGT_Setpoint", "type": "int",   "min": 0,      "max": 2000,  "default": 0,    "desc": "EGT regulator target (deg C, WS500 Pro only). 0 = disabled. Optional - may be omitted."}
+      ]
+    },
+    {
+      "code": "DEP",
+      "title": "Dependency",
+      "summary": "Required device/firmware (e.g. AREG2.4.2).",
+      "profile": false,
+      "fields": [
+        {"name": "Version(s)", "type": "csv_strings", "default": "", "desc": "Comma-separated dependency tags. mmmmxx.yy.zz - e.g. AREG2.4.2, DCDC2.4.3."}
+      ]
+    },
+    {
+      "code": "CPA",
+      "title": "Charge Profile - ACCEPT",
+      "summary": "Bulk/Accept transition and exit conditions.",
+      "profile": true,
+      "fields": [
+        {"name": "VBat Set Point",  "type": "float", "min": 0.0, "max": 16.5, "default": 14.4, "decimals": 2, "scale": "V", "desc": "Acceptance voltage. 12V-normalized in file."},
+        {"name": "Exit Duration",   "type": "int",   "min": 0,   "max": 600,  "default": 200,  "desc": "Minutes in Accept before moving to Overcharge. 0 = no time exit."},
+        {"name": "Exit Amps",       "type": "int",   "min": -1,  "max": 200,  "default": 40,   "scale": "A", "desc": "Exit when amps <= this. -1 = adaptive (5x bulk time). 500Ah-normalized."},
+        {"name": "Reserved",        "type": "int",   "min": 0,   "max": 0,    "default": 0,    "desc": "Must be 0."}
+      ]
+    },
+    {
+      "code": "CPO",
+      "title": "Charge Profile - OVERCHARGE",
+      "summary": "Optional finish phase between Accept and Float. Set Limit Amps = 0 to disable Overcharge.",
+      "profile": true,
+      "fields": [
+        {"name": "Limit Amps",   "type": "int",   "min": -5,  "max": 200,  "default": 0,    "scale": "A", "desc": "Regulated amps in OC. 0 = disable OC (greys out the rest). -1 = special mode (see guide). 500Ah-normalized."},
+        {"name": "Exit Duration","type": "int",   "min": 0,   "max": 600,  "default": 0,    "disabled_when": {"field": "Limit Amps", "values": [0]}, "desc": "Minutes before exit to Float."},
+        {"name": "Exit VBat",    "type": "float", "min": 0.0, "max": 20.0, "default": 0.0,  "decimals": 2, "scale": "V", "disabled_when": {"field": "Limit Amps", "values": [0]}, "desc": "VBat at which to exit OC. 12V-normalized."},
+        {"name": "Exit Amps",    "type": "int",   "min": 0,   "max": 50,   "default": 0,    "scale": "A", "disabled_when": {"field": "Limit Amps", "values": [0]}, "desc": "Exit when acceptance current <= this. 500Ah-normalized."}
+      ]
+    },
+    {
+      "code": "CPF",
+      "title": "Charge Profile - FLOAT",
+      "summary": "Float voltage, current cap, revert-to-Bulk triggers.",
+      "profile": true,
+      "fields": [
+        {"name": "VBat Set Point",   "type": "float", "min": 0.0,  "max": 16.5, "default": 13.3, "decimals": 2, "scale": "V", "desc": "Float voltage. 0 = stop charging in Float. 12V-normalized."},
+        {"name": "Limit Amps",       "type": "int",   "min": -1,   "max": 50,   "default": -1,   "scale": "A", "desc": "Amp cap in Float. -1 = no cap, voltage-only. 500Ah-normalized."},
+        {"name": "Exit Duration",    "type": "int",   "min": 0,    "max": 30000,"default": 0,    "desc": "Minutes before moving to Post-Float. 0 = stay."},
+        {"name": "Revert Amps",      "type": "int",   "min": -300, "max": 0,    "default": 0,    "scale": "A", "desc": "Negative draw triggering revert to Bulk. 0 = disabled. 500Ah-normalized."},
+        {"name": "Revert Amp-hours", "type": "int",   "min": -250, "max": 0,    "default": -10,  "scale": "A", "desc": "Negative AH withdrawn triggering revert. 0 = disabled. 500Ah-normalized."},
+        {"name": "Revert Volts",     "type": "float", "min": 0.0,  "max": 16.5, "default": 12.7, "decimals": 2, "scale": "V", "desc": "VBat below which to revert to Bulk. 0 = disabled. 12V-normalized."},
+        {"name": "Revert SOC",       "type": "int",   "min": 0,    "max": 100,  "default": 0,    "desc": "SOC %% below which to revert (CAN BMS required). 0 = disabled."}
+      ]
+    },
+    {
+      "code": "CPP",
+      "title": "Charge Profile - POST-FLOAT",
+      "summary": "After Float: timer and revert-to-Bulk triggers.",
+      "profile": true,
+      "fields": [
+        {"name": "Exit Duration",    "type": "int",   "min": 0,    "max": 30000,"default": 0,   "desc": "Minutes in Post-Float before re-entering Bulk. 0 = stay."},
+        {"name": "Revert VBat",      "type": "float", "min": 0.0,  "max": 16.5, "default": 0.0, "decimals": 2, "scale": "V", "desc": "VBat below which to revert to Bulk. 0 = disabled. 12V-normalized."},
+        {"name": "Revert Amp-hours", "type": "int",   "min": -250, "max": 0,    "default": 0,   "scale": "A", "desc": "Negative AH withdrawn triggering direct revert to Bulk. 0 = disabled."},
+        {"name": "VBat Set Point",   "type": "float", "min": 0.0,  "max": 16.5, "default": 0.0, "decimals": 2, "scale": "V", "desc": "Post-Float regulated voltage. 0 = charging disabled. 12V-normalized."}
+      ]
+    },
+    {
+      "code": "CPE",
+      "title": "Charge Profile - EQUALIZE",
+      "summary": "Equalization voltage, amp cap, time/amp exits. Set VBat Set Point = 0 to disable Equalize.",
+      "profile": true,
+      "fields": [
+        {"name": "VBat Set Point", "type": "float", "min": 0.0, "max": 20.0, "default": 0.0, "decimals": 2, "scale": "V", "desc": "Equalize voltage. 0 = disable Equalize (greys out the rest). 12V-normalized."},
+        {"name": "Max Amps",       "type": "int",   "min": 0,   "max": 50,   "default": 0,   "scale": "A", "disabled_when": {"field": "VBat Set Point", "values": [0, 0.0]}, "desc": "Optional amp cap. 0 = no cap. 500Ah-normalized."},
+        {"name": "Exit Duration",  "type": "int",   "min": 0,   "max": 600,  "default": 0,   "disabled_when": {"field": "VBat Set Point", "values": [0, 0.0]}, "desc": "Minutes of Equalize."},
+        {"name": "Exit Amps",      "type": "int",   "min": 0,   "max": 50,   "default": 0,   "scale": "A", "disabled_when": {"field": "VBat Set Point", "values": [0, 0.0]}, "desc": "Exit when amps <= this (VBat not checked). 0 = time-only. 500Ah-normalized."}
+      ]
+    },
+    {
+      "code": "CPB",
+      "title": "Charge Profile - BATTERY",
+      "summary": "Temp comp, charge temp limits, reduced-charge, hard caps.",
+      "profile": true,
+      "fields": [
+        {"name": "VBat Comp per 1C", "type": "float", "min": 0.0,  "max": 0.1,  "default": 0.0,  "decimals": 3, "scale": "V", "desc": "V/deg C compensation, 12V-normalized at 25C. 0 = disabled. Scales with system voltage."},
+        {"name": "Min Comp Temp",    "type": "int",   "min": -40,  "max": 40,   "default": 0,    "disabled_when": {"field": "VBat Comp per 1C", "values": [0, 0.0]}, "desc": "Stop adding comp at/below this batt temp (deg C)."},
+        {"name": "Min Charge Temp",  "type": "int",   "min": -50,  "max": 10,   "default": -45,  "desc": "Disable charging below this batt temp (deg C)."},
+        {"name": "Max Charge Temp",  "type": "int",   "min": 20,   "max": 95,   "default": 45,   "desc": "Disable above this batt temp; fault at +20%."},
+        {"name": "Rdc Volts",        "type": "float", "min": 0.0,  "max": 12.0, "default": 0.0,  "decimals": 2, "scale": "V", "desc": "VBat at/below which to enter Reduced Charge mode. 0 = disabled (greys out Rdc Low/High Temp, Rdc Amps). 12V-normalized."},
+        {"name": "Rdc Low Temp",     "type": "int",   "min": -99,  "max": 20,   "default": -99,  "disabled_when": {"field": "Rdc Volts", "values": [0, 0.0]}, "desc": "Batt temp at/below which to enter Reduced Charge. -99 = disabled."},
+        {"name": "Rdc High Temp",    "type": "int",   "min": -99,  "max": 95,   "default": -99,  "disabled_when": {"field": "Rdc Volts", "values": [0, 0.0]}, "desc": "Batt temp at/above which to enter Reduced Charge. -99 = disabled."},
+        {"name": "Rdc Amps",         "type": "int",   "min": 0,    "max": 100,  "default": 0,    "scale": "A", "disabled_when": {"field": "Rdc Volts", "values": [0, 0.0]}, "desc": "Amp cap in Reduced Charge mode. 0 = disabled. 500Ah-normalized."},
+        {"name": "Max Bat Amps",     "type": "int",   "min": 0,    "max": 2000, "default": 0,    "scale": "A", "desc": "Hard max amps into battery. 0 = disabled. 500Ah-normalized."},
+        {"name": "Max Bat Volts",    "type": "float", "min": 0.0,  "max": 20.0, "default": 0.0,  "decimals": 2, "scale": "V", "desc": "Hard max VBat fault trip. 0 = disabled. 12V-normalized."}
+      ]
+    }
+  ]
+}

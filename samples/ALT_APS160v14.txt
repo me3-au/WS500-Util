@@ -1,0 +1,31 @@
+# Configuration file for ALT_APS160v13
+#
+#     May 16 2026
+#     Battery system: Winston, WB-LYP200AHA, Winston LYP, 2, 200
+#     Battery notes: Select Charge Profile to match BMS and charging goals. Make sure to cross check charge profile with BMS cutoff limits.
+#     Alternator: APS, 160H-48
+#     Alternator notes: 48/51V - 160A.
+#     BMS: REC, Q BMS 16S
+#     BMS notes: MUST be 'Victron' variant.  BMS directs charging, use with 'LiFeP04 Get-Home' Charge Profile.  Use RJ45 cross-over cable. Supports remote sensing of battery amps and temperature via CAN.
+#     DCDC: Wakespeed, WS48-12X
+#     DCDC notes: Use in conjunction with WS500 or WS500 Pro
+.
+#
+#     Protected for use only with Wakespeed products.
+#     Any usage without express written permission from Dragonfly Energy is strictly prohibited.
+#     (c)2023 Dragonfly Energy
+#
+# ALT_APS160v14 config file
+$CCN: 1,1,70,1,0,0,1,18,0,0,0.00,0,0,0@
+$SCA: 0,110,0.23,0.23,0.09,0,0,0,10000,1,0,15,1,0,0@
+$SCT: 16,3.100,0,1,0@
+$SCN: 1,ALT_APS160v14,@
+$SCO: 8,-0.00,4.00,0,0,0@
+$CNG: 0,3300,0.2,0.2,0.2,0.45,0.42,0.47,0.38,0.04@
+$DEP: AREG2.2.2@
+$CPA:8 14.0,30,0,0@
+$CPO:8 0,0,0.00,0@
+$CPF:8 13.30,0,0,0,0,13.00,0@
+$CPP:8 0,0.00,0,0.00@
+$CPE:8 0.00,0,0,0@
+$CPB:8 0.000,0,0,45,0.00,-99,-99,0,0@

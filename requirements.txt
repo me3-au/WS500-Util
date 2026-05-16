@@ -1,0 +1,2 @@
+# Python 3.10+ required (uses runtime `X | None` annotations).
+PySide6>=6.6
