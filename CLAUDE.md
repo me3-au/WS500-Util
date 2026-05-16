@@ -4,14 +4,20 @@ Editor for Wakespeed WS500 / WS500-Pro config files (`$XXX:` / `$CPx:n` lines, p
 
 ## Versioning + release
 
-- **Source of truth:** `_version.py` (`APP_NAME`, `VERSION`, `AUTHOR`, `COPYRIGHT`, `LICENSE`, `GUIDE_VERSION`, `GUIDE_TITLE`, `URL`). Everything that displays version info — window title, About dialog, Summary compatibility line, README, CHANGELOG — should read from here.
+- **Sources of truth (keep in lockstep):**
+  - `_version.py` - `APP_NAME`, `VERSION`, `AUTHOR`, `COPYRIGHT`, `LICENSE`, `GUIDE_VERSION`, `GUIDE_TITLE`, `URL`. Read at runtime by the window title, About dialog, Summary compatibility line.
+  - `version_info.txt` - PyInstaller Windows VERSIONINFO resource. Must mirror `VERSION` in `filevers`, `prodvers`, `FileVersion`, and `ProductVersion`. Embedded into the .exe so Windows Properties -> Details shows the right version.
+  - `README.md` - the "**Version X.Y.Z**" line at the top.
 - **Bump procedure for a release**:
   1. Edit `_version.py` -> update `VERSION` (follow SemVer: major for breaking changes, minor for additions, patch for fixes).
-  2. If `ws_schema.json` was updated against a newer Wakespeed guide, also update `GUIDE_VERSION` here and in the schema's `_meta.guide` field.
-  3. Add a `## [X.Y.Z] - YYYY-MM-DD` section at the top of `CHANGELOG.md` summarizing the changes.
-  4. Run `python test_roundtrip.py` — all tests must pass.
-  5. Rebuild the distributable (see "Build a standalone Windows .exe" below).
-  6. Commit with `Release vX.Y.Z` and tag: `git tag vX.Y.Z`.
+  2. Edit `version_info.txt` -> update `filevers`, `prodvers`, `FileVersion`, `ProductVersion` to match.
+  3. Edit `README.md` -> update the version banner.
+  4. If `ws_schema.json` was updated against a newer Wakespeed guide, also update `GUIDE_VERSION` in `_version.py` and the schema's `_meta.guide` field.
+  5. Add a `## [X.Y.Z] - YYYY-MM-DD` section at the top of `CHANGELOG.md` summarizing the changes.
+  6. Run `python test_roundtrip.py` - all tests must pass.
+  7. Rebuild the distributable (see "Build a standalone Windows .exe" below; the build command MUST pass `--version-file version_info.txt`).
+  8. Verify embedded metadata: `powershell -Command "(Get-Item dist\WS500Util\WS500Util.exe).VersionInfo | Format-List FileVersion,ProductVersion"`.
+  9. Commit with `Release vX.Y.Z` and tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
 - **Guide / firmware drift:** when Wakespeed publishes a new guide, audit `ws_schema.json` field-by-field against the new version. Bump `GUIDE_VERSION` once the schema has been validated against the new doc.
 
 ## Project layout
@@ -19,8 +25,11 @@ Editor for Wakespeed WS500 / WS500-Pro config files (`$XXX:` / `$CPx:n` lines, p
 - `ws500_util.py` - PySide6 GUI entry point.
 - `ws_config.py` - parser, writer, schema model, plus Qt-free engine helpers (`values_equal`, `compare_numeric`, `rpm_bucket_prefix`, `canonicalize_header`). No Qt dependency. Loads `ws_schema.json` via `_resource_dir()` which already handles PyInstaller frozen builds (`sys._MEIPASS`).
 - `ws_schema.json` - field metadata for all 13 commands. Fields marked `"scale": "V"` are 12V-normalized in the file and shown at system voltage in the UI (multiplier from `$SCO` field 3). See the `_meta` block for the full schema key reference.
+- `_version.py` - runtime app metadata (version, author, license, target guide version). Read by `ws500_util.py` for the window title and About dialog.
+- `version_info.txt` - PyInstaller Windows VERSIONINFO template. Embedded into the .exe at build time. Keep in lockstep with `_version.py`.
 - `test_roundtrip.py` - headless tests; do not import PySide6. Run before any build.
 - `samples/` - example configs (`ALT_APS160v14.txt`).
+- `CHANGELOG.md`, `LICENSE` (GPL-3.0), `README.md` - release history, license text, user-facing docs.
 
 **Python 3.10+** required (uses `X | None` runtime annotations).
 
@@ -72,6 +81,8 @@ The UI picks an editor widget per field, dispatched on `_kind`:
 | `string`   | `type=string` or `csv_strings`           | `QLineEdit`                             |
 
 Untouched-value preservation: for every kind except `string`, `file_value()` returns the literal `_file_value` until the user actually interacts with the editor. This protects against e.g. `QDoubleSpinBox` silently normalizing `-0.00` to `0.00` and Apply losing the sign.
+
+**Scroll-wheel guard:** the spinboxes and combobox are constructed as `NoWheelSpinBox`, `NoWheelDoubleSpinBox`, `NoWheelComboBox` - thin subclasses that `event.ignore()` wheel events so the surrounding `QScrollArea` scrolls instead of the field value changing. If you add another wheel-sensitive widget, wrap it the same way.
 
 ## Dependency mapping (`disabled_when`)
 
@@ -146,7 +157,7 @@ When adding a new dependency:
 - Field descriptions are rendered as `Qt.RichText` (HTML allowed) and capped at 800px wide so long text wraps onto multiple lines instead of stretching across wide windows.
 - The Summary page hosts the canonical editable **Configuration name**, mirrored to `$SCN` Reg Name, the window title, and the Save As default filename. It also holds an editable header notes block (canonicalized via `wc.canonicalize_header` on Apply — every line must start with `#` or `.`) and a "Generate New Summary" button that writes a fresh notes block listing every non-default field.
 - **Apply = Save.** "Apply to file" on a command page or the Summary page writes the whole config to disk (prompts Save As only when no path is set). There is no separate Save menu.
-- File menu has only Quit. On app launch, a file-open dialog appears defaulting to `samples/`.
+- File menu has only Quit; Help menu has only About. On app launch, a file-open dialog appears defaulting to the folder the app itself lives in (the exe folder for frozen builds, the source folder when running from source). If the user cancels, the app stays empty.
 - Theme: `_resolve_theme()` picks readable color sets for light vs dark by inspecting `QPalette.Window` lightness at app start. Cross-command-sourced text (dynamic prefixes, bitmask computed value) uses the `dynamic` color so users can distinguish derived text from fixed schema text.
 
 ## Build a standalone Windows .exe with PyInstaller
@@ -175,17 +186,19 @@ All tests must pass. If any fail, stop and fix the parser/writer/schema before b
 
 ```cmd
 pyinstaller --noconfirm --clean --windowed --name WS500Util ^
+  --version-file version_info.txt ^
   --add-data "ws_schema.json;." ^
   --add-data "samples;samples" ^
   ws500_util.py
 ```
 
-Output: `dist\WS500Util\WS500Util.exe` plus a folder of dependencies. Ship the whole folder (zip it).
+Output: `dist\WS500Util\WS500Util.exe` plus a folder of dependencies. Ship the whole folder (zip it). The `--version-file` flag embeds the version metadata from `version_info.txt` into the .exe so it shows up in Properties -> Details.
 
 ### Build (onefile - single .exe)
 
 ```cmd
 pyinstaller --noconfirm --clean --windowed --onefile --name WS500Util ^
+  --version-file version_info.txt ^
   --add-data "ws_schema.json;." ^
   --add-data "samples;samples" ^
   ws500_util.py
@@ -196,13 +209,15 @@ Output: `dist\WS500Util.exe`. First-run cold start is ~3-5s while it unpacks to 
 ### Verify the build
 
 1. Open `dist\WS500Util\WS500Util.exe` (or `dist\WS500Util.exe`).
-2. File -> Open `samples\ALT_APS160v14.txt`.
-3. Confirm sidebar shows Summary + 13 command pages.
-4. Confirm Summary shows "System voltage multiplier (from $SCO): x4".
-5. Open `$CPA:8`, confirm VBat Set Point shows `56.00` (file value `14.0` x4).
-6. Edit to `56.40`, click "Apply to file", File -> Save As to a temp path, reopen, confirm the value persisted as `14.10` in the raw line.
+2. The file-open dialog should pop up at launch. Pick `samples\ALT_APS160v14.txt` (or browse into the bundled `_internal\samples\` for onedir).
+3. Confirm sidebar shows Summary, then grouped command pages (System Config, Battery Charging), and a File Preview entry at the bottom. `$DEP` is hidden.
+4. Confirm Summary shows "System voltage multiplier (from $SCO): x4" and the compatibility line "App WS500 Util X.Y.Z - schema targets ... v2.6.1".
+5. Open `$CPA:8`, confirm VBat Set Point shows `56.00 V (system target)` with a `file (12V-norm): 14.00` sub-line.
+6. Edit to `56.40`, click "Apply to file" (this saves to disk - prompts Save As if no path), reopen the file, confirm the value persisted as `14.10` in the raw line.
+7. Help -> About should show version and the targeted guide version.
+8. Verify embedded metadata: `(Get-Item dist\WS500Util\WS500Util.exe).VersionInfo`.
 
-If step 4 or 5 fails, the schema or data file isn't being bundled - check that `ws_schema.json` is next to `WS500Util.exe` in onedir, or that `--add-data "ws_schema.json;."` was passed for onefile. The semicolon is required on Windows (Mac/Linux use `:`).
+If step 4 or 5 fails, the schema or data file isn't being bundled - check that `ws_schema.json` is next to `WS500Util.exe` in onedir (under `_internal\`), or that `--add-data "ws_schema.json;."` was passed for onefile. The semicolon is required on Windows (Mac/Linux use `:`).
 
 ### Icon (optional)
 
@@ -214,7 +229,7 @@ Requires an Authenticode certificate. Out of scope for this doc - sign `dist\WS5
 
 ## Build for macOS (later)
 
-Same flow on a Mac, but `--add-data` uses `:` not `;`:
+Same flow on a Mac, but `--add-data` uses `:` not `;`. The `--version-file` flag is Windows-only and silently ignored elsewhere; PyInstaller writes Info.plist on macOS - bump `CFBundleShortVersionString` separately if needed.
 
 ```bash
 pyinstaller --noconfirm --clean --windowed --name WS500Util \
@@ -234,9 +249,22 @@ Output: `dist/WS500Util.app`. Notarization is a separate step.
 
 ## When adding a new $XXX command or field
 
-1. Add the field to `ws_schema.json` under the correct command's `fields[]`. Include `name`, `type`, `min`/`max` (or `max_len`), `default`, `desc`, and `"scale": "V"` if it's a voltage.
+1. Add the field to `ws_schema.json` under the correct command's `fields[]`. Required: `name`, `type`, `min`/`max` (or `max_len` for strings), `default`, `desc`. Optional:
+   - `"scale": "V"` for 12V-normalized voltage fields.
+   - `"decimals": N` for float fields with non-default precision.
+   - `"sensitive": "password"` for password-style fields.
+   - `"as": "text" | "choices" | "dropdown"` to override the default editor.
+   - `"choices": [{value, label}, ...]` (required for `choices` / `dropdown`).
+   - `"bits": [{value, label}, ...]` for bitmask checkbox groups.
+   - `"direction": "Tx"|"Rx"|"Rx/Tx"|"Internal"` for the CAN traffic badge.
+   - `"disabled_when": {...}` for dependency rules (see Dependency mapping).
+   - `"max_field": "<other field>"` for cross-field constraints.
+   - `"preserve_when_disabled": true` for safety-critical fields that must keep their value when their trigger isn't active.
+   - `"prefix_from": {...}` or `"rpm_bucket": {...}` for dynamic description prefixes.
 2. Run `python test_roundtrip.py`. If the sample file's command for that line now has fewer values than the schema, `CommandPage` pads from the field default - confirm the rendered line still parses.
-3. Rebuild the exe.
+3. If this is a *new* command code (not in `SIDEBAR_GROUPS`), add it to the right group in `ws500_util.py` or it falls into "Other".
+4. Update the relevant CLAUDE.md table (dependency map, etc.) if the new field has cross-cmd / cross-field rules.
+5. Bump the version per the Versioning + release section and add a CHANGELOG entry, then rebuild.
 
 ## Out of scope (don't add without asking)
 
