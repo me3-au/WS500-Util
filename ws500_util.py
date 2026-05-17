@@ -1486,6 +1486,25 @@ class SummaryPage(QWidget):
 
     # -- auto-generated summary ------------------------------------------
 
+    def _ordered_commands(self) -> list:
+        """Return cf.commands in sidebar order (SIDEBAR_GROUPS first, then
+        anything else in file order, with HIDDEN_CODES omitted). Keeps the
+        auto-generated summary visually aligned with the sidebar."""
+        by_code: dict[str, list] = {}
+        for c in self.cf.commands:
+            by_code.setdefault(c.code, []).append(c)
+        out: list = []
+        placed: set[str] = set(HIDDEN_CODES)
+        for _title, codes in SIDEBAR_GROUPS:
+            for code in codes:
+                for c in by_code.get(code, []):
+                    out.append(c)
+                placed.add(code)
+        for c in self.cf.commands:
+            if c.code not in placed:
+                out.append(c)
+        return out
+
     def _generate_summary(self) -> None:
         """Build a fresh header block from the config name, today's date, and
         every field whose current value differs from its schema default."""
@@ -1499,7 +1518,7 @@ class SummaryPage(QWidget):
             "# Non-default settings:",
         ]
         any_non_default = False
-        for cmd in self.cf.commands:
+        for cmd in self._ordered_commands():
             spec = self.schema_by_code.get(cmd.code)
             if not spec:
                 continue

@@ -4,6 +4,14 @@ All notable changes to this project. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions use
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-05-17
+
+### Changed
+- "Generate New Summary" now lists commands in sidebar order
+  (System Config first, then Battery Charging, then any unrecognized) so
+  the auto-generated notes line up with what the user sees in the app,
+  instead of the file's order of appearance. `$DEP` is still skipped.
+
 ## [1.0.1] - 2026-05-16
 
 ### Added
