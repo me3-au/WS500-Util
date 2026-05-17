@@ -2,14 +2,22 @@
 
 **Version 1.0.2** · Editor for Wakespeed WS500 / WS500-Pro configuration text files.
 
+More detailed than the mobile app, it allows you to more easily view and edit Wakespeed config `.txt` files.
+
 Schema and field semantics target **Wakespeed Communications and Configuration Guide v2.6.1**. If your firmware or guide version differs, treat this app as advisory and cross-check against Wakespeed's docs. See [CHANGELOG.md](CHANGELOG.md) for release history and [CLAUDE.md](CLAUDE.md) for implementation conventions.
 
 Licensed under **GPL-3.0-or-later** — see [LICENSE](LICENSE).
 
+## Download
+
+Prebuilt Windows binaries are on the **[Releases page](https://github.com/me3-au/WS500-Util/releases)**. Download the latest `WS500Util-vX.Y.Z-windows.zip`, unzip anywhere, and run `WS500Util.exe`. No install, no Python required.
+
+> **First launch:** Windows SmartScreen may show "Windows protected your PC" because the .exe isn't yet signed. Click *More info* → *Run anyway*. The app is open source — review the code here or build it yourself from source (see below).
+
 ## What it does
 
 - Parses a config `.txt`; preserves all comment / header lines verbatim (including CRLF if the source used it).
-- On launch, prompts for a config file (defaults to the `samples/` folder).
+- On launch, prompts for a config file (defaults to the folder the app lives in).
 - **Summary** page — editable configuration name (mirrored to `$SCN` Reg Name, window title, and Save-As default filename), editable header notes (with a "Generate New Summary" button that lists every non-default field), and the system voltage multiplier.
 - Per-command editor pages, sidebar-grouped (System Config, Battery Charging). Each row shows `Field | Current | New | Valid Range | Default | Notes`. Voltage fields show both system-target and file-normalized values.
 - Smart input widgets driven by the schema: integer spinboxes, float spinboxes with per-field decimals, checkboxes for 0/1 fields, radio groups for enumerated choices (`$SCO` SV_Override, Feature-IN), and bitmask checkbox rows with a live computed value (`$SCA` Required/Ignore Sensors).
